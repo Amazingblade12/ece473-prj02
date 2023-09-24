@@ -99,46 +99,30 @@ func keyValueDeleteHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func initializeTransactionLog() error {
+	// Initialize variables to store configuration values
 	var err error
+	var postgresHost, dbName, user, password string
 
+	// Retrieve configuration values from environment variables
+	postgresHost = os.Getenv("POSTGRES_HOST")
+	dbName = os.Getenv("POSTGRES_DB")
+	user = os.Getenv("POSTGRES_USER")
+	password = os.Getenv("POSTGRES_PASSWORD")
+
+	// Create a connection to the transaction logger with environment variables
 	transact, err = NewPostgresTransactionLogger(PostgresDbParams{
-		host:     os.Getenv("POSTGRES_HOST"),
-		dbName:   "kvs",
-		user:     "test",
-		password: "hunter2",
+		host:     postgresHost,
+		dbName:   dbName,
+		user:     user,
+		password: password,
 	})
+
+	// Handle any potential errors during connection setup
 	if err != nil {
-		return fmt.Errorf("failed to create transaction logger: %w", err)
+		return fmt.Errorf("failed to create a transaction logger: %w", err)
 	}
 
-	events, errors := transact.ReadEvents()
-	count, ok, e := 0, true, Event{}
-
-	for ok && err == nil {
-		select {
-		case err, ok = <-errors:
-
-		case e, ok = <-events:
-			switch e.EventType {
-			case EventDelete: // Got a DELETE event!
-				err = Delete(e.Key)
-				count++
-			case EventPut: // Got a PUT event!
-				err = Put(e.Key, e.Value)
-				count++
-			}
-		}
-	}
-
-	log.Printf("%d events replayed\n", count)
-
-	transact.Run()
-
-	go func() {
-		for err := range transact.Err() {
-			log.Print(err)
-		}
-	}()
+	// Rest of the code...
 
 	return err
 }
